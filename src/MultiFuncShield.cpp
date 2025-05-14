@@ -13,7 +13,7 @@ const byte LED[] = {LED_1_PIN, LED_2_PIN, LED_3_PIN, LED_4_PIN};
 /* Segment byte maps for numbers 0 to 9 */
 const byte SEGMENT_MAP_DIGIT[] = {0xC0,0xF9,0xA4,0xB0,0x99,0x92,0x82,0xF8,0X80,0X90};
 /* Segment byte maps for alpha a-z */
-const byte SEGMENT_MAP_ALPHA[] = {136, 131, 167, 161, 134, 142, 144, 139 ,207, 241, 138, 199, 170, 171, 163, 140, 152, 175, 146, 135, 227, 227, 129, 137, 145, 164};
+const byte SEGMENT_MAP_ALPHA[] = {136, 131, 167, 161, 134, 142, 144, 139 ,207, 241, 182, 199, 182, 171, 163, 140, 152, 175, 146, 135, 227, 182, 182, 182, 145, 182};
 
 /* Byte maps to select digit 1 to 4 */
 const byte SEGMENT_SELECT[] = {0xF1,0xF2,0xF4,0xF8};
@@ -23,8 +23,11 @@ const byte BLINK_ON_COUNT = 65;
 const byte BLINK_OFF_COUNT = 20;
 
 volatile byte displayMemory[4] = {255,255,255,255};
-byte displayTimerScaler = 4;
 
+#define	DISPLAY_TIMER_SCALER_RELOAD	4
+
+volatile byte displayTimerScaler = DISPLAY_TIMER_SCALER_RELOAD;
+volatile byte displayBrightness = 0;
 
 // Sonar ranger specific variables
 
@@ -51,8 +54,12 @@ int MedianOf5(int s0, int s1, int s2, int s3, int s4);
 uint8_t pulseInBit;
 uint8_t pulseInPort;
 
+// button port specfics
+uint8_t buttonPort[3];
+uint8_t buttonBit[3];
 
-void MultiFuncShield::initShield()
+
+void initShield()
 {
     /* Set each LED pin to outputs */
   pinMode(LED[0], OUTPUT);
@@ -75,23 +82,34 @@ void MultiFuncShield::initShield()
   
   /* Set the buzzer pin to an output and turn the buzzer off */
   pinMode(BEEPER_PIN, OUTPUT);
-  digitalWrite(BEEPER_PIN, HIGH != beeperReversePolarity);
+  digitalWrite(BEEPER_PIN, HIGH);
+
+  /* Set button pins to input */
+  pinMode(A1, INPUT_PULLUP);
+  pinMode(A2, INPUT_PULLUP);
+  pinMode(A3, INPUT_PULLUP);
   
+  int idx=0;
+  buttonPort[idx] = digitalPinToPort(BUTTON_1_PIN);
+  buttonBit[idx] = digitalPinToBitMask(BUTTON_1_PIN);
+  idx++;
+  buttonPort[idx] = digitalPinToPort(BUTTON_2_PIN);
+  buttonBit[idx] = digitalPinToBitMask(BUTTON_2_PIN);
+  idx++;
+  buttonPort[idx] = digitalPinToPort(BUTTON_3_PIN);
+  buttonBit[idx] = digitalPinToBitMask(BUTTON_3_PIN);
+
 }
 
 // ----------------------------------------------------------------------------------------------------
-void MultiFuncShield::initialize(TimerOne *timer1Instance)
-{
-  initShield();
-  
-  timer1 = timer1Instance;
-  timer1->attachInterrupt(isrWrapper, 1000); // effectively, 1000 times per second
-}
-
 
 void MultiFuncShield::initialize()
 {
   initShield();
+
+  // piggy back on to timer0, which is already set to approx 1khz.
+  OCR0A = 0xAF;
+  TIMSK0 |= _BV(OCIE0A);
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -305,7 +323,7 @@ void MultiFuncShield::setPulseInTimeOut(unsigned int timeOut)
 // ----------------------------------------------------------------------------------------------------
 void MultiFuncShield::queueButton (byte button)
 {
-  if (buttonBufferCount <= (int) sizeof (buttonBuffer))
+  if (buttonBufferCount <= sizeof (buttonBuffer))
   {
     buttonBuffer [button_write_pos] = button;
     buttonBufferCount++;
@@ -428,6 +446,12 @@ void MultiFuncShield::blinkLeds(byte leds, byte enabled)
   }
 }
 
+// ----------------------------------------------------------------------------------------------------
+void MultiFuncShield::setDisplayBrightness(byte level)
+{
+  displayBrightness = level >= DISPLAY_TIMER_SCALER_RELOAD ? DISPLAY_TIMER_SCALER_RELOAD-1 : level;
+}
+
 
 // ----------------------------------------------------------------------------------------------------
 void MultiFuncShield::write(int integer)
@@ -487,12 +511,14 @@ void MultiFuncShield::write(float number, byte decimalPlaces)
 // ----------------------------------------------------------------------------------------------------
 void MultiFuncShield::write(const char *text, byte rightJustify)
 {
-  byte displayBuf[] = {0,0,0,0};
+  byte displayBuf[] = {0,0,0,0}, *pBuf = displayBuf;
   
   byte idx =0;
   
   for (; *text != 0 && idx < sizeof(displayBuf); text++)
   {
+    byte offset = 0;
+    
     if (*text == '.')
     {
       if (idx > 0)
@@ -540,9 +566,9 @@ void MultiFuncShield::write(const char *text, byte rightJustify)
   // left justify
   else
   {
-    for (int i =0; i < (int) sizeof(displayBuf); i++)
+    for (int i =0; i < sizeof(displayBuf); i++)
     {
-      displayMemory[i] = (char) displayBuf[i];
+      displayMemory[i] = displayBuf[i];
     }
   }
 }
@@ -604,7 +630,7 @@ void MultiFuncShield::isrCallBack()
   
   if (displayTimerScaler == 0)
   {
-    displayTimerScaler = 4;
+    displayTimerScaler = DISPLAY_TIMER_SCALER_RELOAD;
     
     // Global bink control
     if (blinkEnabled || ledBlinkEnabled)
@@ -631,6 +657,7 @@ void MultiFuncShield::isrCallBack()
         }
       }
     }
+
     
     // Digit display blink control
     if (blinkEnabled & (1 << displayIdx))
@@ -681,7 +708,14 @@ void MultiFuncShield::isrCallBack()
       ledOutput = ledOutputNew;
     }
   }
-
+  else
+  {
+    // Handle display brightness
+    if (displayTimerScaler == displayBrightness)
+    {
+      WriteValueToSegment(displayIdx == 0 ? 3 : displayIdx-1, 255);
+    }
+  }
 
   // Beeper control.
   
@@ -772,10 +806,11 @@ void MultiFuncShield::isrCallBack()
     
     byte btnStateNow;
     
-    for (int i=0; i < (int)sizeof(buttonPins); i++)
+    for (int i=0; i < BUTTON_COUNT; i++)
     {
       //btnStateNow = !digitalRead(buttonPins[i]);
-      btnStateNow = !readButton(i);
+      //btnStateNow = !readButton(i);
+      btnStateNow = !(*portInputRegister(buttonPort[i]) & buttonBit[i]);
       
       // If button state has changed, action the change.
       if (buttonState[i] != btnStateNow)
@@ -892,10 +927,10 @@ void MultiFuncShield::manualButtonHandler()
 {
   byte btnStateNow;
   
-  for (int i=0; i < (int) sizeof(buttonPins); i++)
+  for (int i=0; i < BUTTON_COUNT; i++)
   {
-    btnStateNow = !digitalRead(buttonPins[i]);
-    
+    //btnStateNow = !digitalRead(buttonPins[i]);
+    btnStateNow = !(*portInputRegister(buttonPort[i]) & buttonBit[i]);
     // If button state has changed, action the change.
 
     if (buttonState[i] != btnStateNow)
@@ -917,11 +952,15 @@ void MultiFuncShield::manualButtonHandler()
 
 
 // ----------------------------------------------------------------------------------------------------
-void isrWrapper ()
+//void isrWrapper ()
+//{
+//  MFS.isrCallBack();
+//}
+
+SIGNAL(TIMER0_COMPA_vect)
 {
   MFS.isrCallBack();
 }
-
 
 // ----------------------------------------------------------------------------------------------------
 byte AsciiToSegmentValue (byte ascii)
@@ -952,18 +991,6 @@ byte AsciiToSegmentValue (byte ascii)
         break;
       case '_':
         segmentValue = 247;
-        break;
-      case '?':
-        segmentValue = 172;
-        break;
-      case '!':
-        segmentValue = 121;
-        break;
-      case '\'':
-        segmentValue = 253;
-        break;
-      case '"':
-        segmentValue = 221;
         break;
       case ' ':
         segmentValue = 255;
@@ -1174,33 +1201,18 @@ int MedianOf9(int s0, int s1, int s2, int s3, int s4, int s5, int s6, int s7, in
     bitClear(PORTD, 4);
 
     for (uint8_t i = 0; i < 8; i++)  {
-    bitWrite(PORTB, 0, !!(Value & (1 << (7 - i))));
-    bitSet(PORTD, 7);
-    bitClear(PORTD, 7);
+      bitWrite(PORTB, 0, !!(Value & (1 << (7 - i))));
+      bitSet(PORTD, 7);
+      bitClear(PORTD, 7);
     } 
 
     for (uint8_t i = 0; i < 8; i++)  {
-    bitWrite(PORTB, 0, !!(SEGMENT_SELECT[Segment] & (1 << (7 - i))));
-    bitSet(PORTD, 7);
-    bitClear(PORTD, 7);          
+      bitWrite(PORTB, 0, !!(SEGMENT_SELECT[Segment] & (1 << (7 - i))));
+      bitSet(PORTD, 7);
+      bitClear(PORTD, 7);          
     } 
 
     bitSet(PORTD, 4);
-  }
-
-  
-  byte readButton (byte btnIndex)
-  {
-    switch (btnIndex)
-    {
-    case 0:
-      return bitRead(PINC, 1);
-    case 1:
-      return bitRead(PINC, 2);
-    case 2:
-      return bitRead(PINC, 3);
-    }
-    return 0;
   }
   
   void writeBeeper (byte value)
@@ -1235,32 +1247,18 @@ int MedianOf9(int s0, int s1, int s2, int s3, int s4, int s5, int s6, int s7, in
     bitClear(PORTD, 4);
 
     for (uint8_t i = 0; i < 8; i++)  {
-    bitWrite(PORTB, 4, !!(Value & (1 << (7 - i))));
-    bitSet(PORTE, 6);
-    bitClear(PORTE, 6);
+      bitWrite(PORTB, 4, !!(Value & (1 << (7 - i))));
+      bitSet(PORTE, 6);
+      bitClear(PORTE, 6);
     } 
 
     for (uint8_t i = 0; i < 8; i++)  {
-    bitWrite(PORTB, 4, !!(SEGMENT_SELECT[Segment] & (1 << (7 - i))));
-    bitSet(PORTE, 6);
-    bitClear(PORTE, 6);          
+      bitWrite(PORTB, 4, !!(SEGMENT_SELECT[Segment] & (1 << (7 - i))));
+      bitSet(PORTE, 6);
+      bitClear(PORTE, 6);
     } 
 
     bitSet(PORTD, 4);
-  }
-
-  
-  byte readButton (byte btnIndex)
-  {
-    switch (btnIndex)
-    {
-    case 0:
-      return bitRead(PINF, 6);
-    case 1:
-      return bitRead(PINF, 5);
-    case 2:
-      return bitRead(PINF, 4);
-    }
   }
   
   void writeBeeper (byte value)
@@ -1306,34 +1304,20 @@ void WriteValueToSegment(byte Segment, byte Value)
     bitClear(PORTG, 5);
 
     for (uint8_t i = 0; i < 8; i++)  {
-    bitWrite(PORTH, 5, !!(Value & (1 << (7 - i))));
-    bitSet(PORTH, 4);
-    bitClear(PORTH, 4);
+      bitWrite(PORTH, 5, !!(Value & (1 << (7 - i))));
+      bitSet(PORTH, 4);
+      bitClear(PORTH, 4);
     } 
 
     for (uint8_t i = 0; i < 8; i++)  {
-    bitWrite(PORTH, 5, !!(SEGMENT_SELECT[Segment] & (1 << (7 - i))));
-    bitSet(PORTH, 4);
-    bitClear(PORTH, 4);          
+      bitWrite(PORTH, 5, !!(SEGMENT_SELECT[Segment] & (1 << (7 - i))));
+      bitSet(PORTH, 4);
+      bitClear(PORTH, 4);          
     } 
 
     bitSet(PORTG, 5);
   }
-
-  
-  byte readButton (byte btnIndex)
-  {
-    switch (btnIndex)
-    {
-    case 0:
-      return bitRead(PINF, 1);
-    case 1:
-      return bitRead(PINF, 2);
-    case 2:
-      return bitRead(PINF, 3);
-    }
-  }
-  
+ 
   void writeBeeper (byte value)
   {
     bitWrite(PORTE, 5, value);
