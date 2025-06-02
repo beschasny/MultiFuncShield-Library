@@ -1,23 +1,12 @@
-[![PlatformIO](https://github.com/hpsaturn/MultiFuncShield-Library/workflows/PlatformIO/badge.svg)](https://github.com/kike-canaries/canairio_sensorlib/actions/) ![ViewCount](https://views.whatilearened.today/views/github/hpsaturn/MultiFuncShield-Library.svg) 
-
 # Multi Function Shield Library
 
-![Shield](images/shield00.jpg)
+This library was made by Kashif Baig and [Cohesive Computing](https://www.cohesivecomputing.co.uk/hackatronics/arduino-multi-function-shield/).
 
-# Library Features
+Here is the most recent version 1.3 with minor improvements by myself:
 
-- Timer configuration
-- LED digit display handling (text, int, float)
-- Manual LED digits refresh
-- LED digit blinks and selection
-- Beeper handling (also inverted polarity fix)
-- Buttons handling
-- Sonar reading feature
-- LM35 sensor support
-- MPU6050 support
+- Enhanced support for displaying characters (following the modern scheme of [7-segment display character representations](https://en.wikipedia.org/wiki/Seven-segment_display_character_representations))
+- Additionl support for some special characters
+- Additional support for letter pairs to fit them into one display (e.g., "ii", "li", "il")
+- Blink timing updated to maintain approximately 1-second intervals
 
-Please see the examples for details.
-
-# Credits
-
-The first version was imported from [Cohesive Computing](http://www.cohesivecomputing.co.uk/hackatronics/arduino-multi-function-shield/) - Hackatronics)
+![Multi Function Shield](mfs-scheme.png)
