@@ -11,9 +11,18 @@ MultiFuncShield MFS;
 const byte LED[] = {LED_1_PIN, LED_2_PIN, LED_3_PIN, LED_4_PIN};
 
 /* Segment byte maps for numbers 0 to 9 */
+// 0: 192  1: 249  2: 164  3: 176  4: 153  5: 146  6: 130  7: 248  8: 128  9: 144
 const byte SEGMENT_MAP_DIGIT[] = {0xC0,0xF9,0xA4,0xB0,0x99,0x92,0x82,0xF8,0X80,0X90};
 /* Segment byte maps for alpha a-z */
-const byte SEGMENT_MAP_ALPHA[] = {136, 131, 167, 161, 134, 142, 144, 139 ,207, 241, 182, 199, 182, 171, 163, 140, 152, 175, 146, 135, 227, 182, 182, 182, 145, 182};
+// a 179  b 131  c 167  d 161  e 231  f 143  g 166  h 139  i 239
+// j 243  k 150  l 207  m 170  n 171  o 163  p 140  q 152  r 175
+// s 243  t 135  u 227  v 243  w 213  x 183  y 145  z 183
+const byte SEGMENT_MAP_ALPHA[] = {179, 131, 167, 161, 231, 143, 166, 139, 239, 243, 150, 207, 170, 171, 163, 140, 152, 175, 243, 135, 227, 243, 213, 183, 145, 183};
+/* Segment byte maps for alpha A-Z (uppercase) */
+// A 136  B 128  C 198  D 224  E 134  F 142  G 194  H 137  I 207
+// J 241  K 138  L 199  M 212  N 200  O 192  P 140  Q 148  R 132
+// S 146  T 206  U 193  V 209  W 226  X 182  Y 149  Z 164
+const byte SEGMENT_MAP_ALPHA_UP[] = {136, 128, 198, 224, 134, 142, 194, 137, 207, 241, 138, 199, 212, 200, 192, 140, 148, 132, 146, 206, 193, 209, 226, 182, 149, 164};
 
 /* Byte maps to select digit 1 to 4 */
 const byte SEGMENT_SELECT[] = {0xF1,0xF2,0xF4,0xF8};
@@ -992,6 +1001,37 @@ byte AsciiToSegmentValue (byte ascii)
       case '_':
         segmentValue = 247;
         break;
+
+      // Use special characters to extend display capabilities,
+      // allowing the representation of letter pairs or custom symbols
+      case '\'': // [ ']
+        segmentValue = 253;
+        break;
+      case '"':   // ['']
+        segmentValue = 221;
+        break;
+      case '!':   // [ !]
+        segmentValue = 125;
+        break;
+      case '#':   // [ii]
+        segmentValue = 235;
+        break;
+      case '{':   // [il]
+        segmentValue = 233;
+        break;
+      case '}':   // [li]
+        segmentValue = 203;
+        break;
+      case '~':   // Top dash
+        segmentValue = 254;
+        break;
+      case '<':   // Top left angle
+        segmentValue = 222;
+        break;
+      case '>':   // Top right angle
+        segmentValue = 252;
+        break;
+
       case ' ':
         segmentValue = 255;
         break;
