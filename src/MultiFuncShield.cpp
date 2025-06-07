@@ -28,8 +28,9 @@ const byte SEGMENT_MAP_ALPHA_UP[] = {136, 128, 198, 224, 134, 142, 194, 137, 207
 const byte SEGMENT_SELECT[] = {0xF1,0xF2,0xF4,0xF8};
 const char DISPLAY_OVERFLOW_ERROR = 'E';
 
-const byte BLINK_ON_COUNT = 65;
-const byte BLINK_OFF_COUNT = 20;
+// Values to maintain approximately 1-second intervals for blinking
+const byte BLINK_ON_COUNT = 121;
+const byte BLINK_OFF_COUNT = 121;
 
 volatile byte displayMemory[4] = {255,255,255,255};
 
