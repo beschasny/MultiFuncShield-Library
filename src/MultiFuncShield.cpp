@@ -393,7 +393,6 @@ void MultiFuncShield::beep(unsigned int onPeriod, unsigned int offPeriod, byte c
   beeperModifyInProgress = 0; // must do this last.
 }
 
-
 // ----------------------------------------------------------------------------------------------------
 void MultiFuncShield::setBeepOffPeriod(unsigned int offPeriod)
 {
@@ -416,8 +415,6 @@ void MultiFuncShield::setBeeperReversePolarity(bool enable)
 {
   beeperReversePolarity = enable;  
 }
-
-
 
 // ----------------------------------------------------------------------------------------------------
 //void MultiFuncShield::setLedControlMask(byte controlMask)
@@ -986,7 +983,7 @@ byte AsciiToSegmentValue (byte ascii)
   }
   else if (ascii >= 'A' && ascii <='Z')
   {
-    segmentValue = SEGMENT_MAP_ALPHA[ascii - 'A'];
+    segmentValue = SEGMENT_MAP_ALPHA_UP[ascii - 'A'];
   }
   else
   {
