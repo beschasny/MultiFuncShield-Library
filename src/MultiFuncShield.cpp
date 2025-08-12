@@ -1020,6 +1020,9 @@ byte AsciiToSegmentValue (byte ascii)
       case '}':   // [li]
         segmentValue = 203;
         break;
+      case '|':   // [ll]
+        segmentValue = 201;
+        break;
       case '~':   // Top dash
         segmentValue = 254;
         break;
